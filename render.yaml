@@ -1,0 +1,43 @@
+services:
+  # Django API Backend
+  - type: web
+    name: fundflow-api
+    runtime: python
+    buildCommand: "pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput"
+    startCommand: "cd backend && python manage.py migrate && python manage.py seed_demo && gunicorn fundflow.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fundflow-db
+          property: connectionString
+
+  # React SPA Frontend
+  - type: web
+    name: fundflow-frontend
+    runtime: static
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "./frontend/dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: fundflow-api
+          property: host
+
+databases:
+  - name: fundflow-db
+    databaseName: fundflow
+    user: postgres
+    plan: free

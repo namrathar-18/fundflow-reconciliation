@@ -60,9 +60,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fundflow.wsgi.application'
 
+DATABASE_URL = config('DATABASE_URL', default='')
 _USE_SQLITE = config('USE_SQLITE', default=False, cast=bool)
 
-if _USE_SQLITE:
+if DATABASE_URL:
+    import urllib.parse
+    _db_url = urllib.parse.urlparse(DATABASE_URL)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': _db_url.path.lstrip('/'),
+            'USER': _db_url.username,
+            'PASSWORD': _db_url.password,
+            'HOST': _db_url.hostname,
+            'PORT': _db_url.port or '5432',
+        }
+    }
+elif _USE_SQLITE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
