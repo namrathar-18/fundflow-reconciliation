@@ -1,15 +1,14 @@
+import React from 'react';
 import { formatMoney, lineItemStatusMeta, fundedPercent } from '../utils';
+import { IconFileText, IconCalendar, IconAlertTriangle } from './Icons';
 
-/**
- * Line items panel showing funded progress per LP.
- */
 export default function LineItemPanel({ lineItems, loading, error, onRefresh }) {
   if (loading) {
     return (
       <div className="card line-items-panel">
-        <div className="state-container" style={{ padding: '2rem' }}>
+        <div className="state-container">
           <div className="spinner" />
-          <span className="state-title" style={{ fontSize: '0.82rem' }}>Loading…</span>
+          <span className="state-title">Loading LP Allocations…</span>
         </div>
       </div>
     );
@@ -18,10 +17,13 @@ export default function LineItemPanel({ lineItems, loading, error, onRefresh }) 
   if (error) {
     return (
       <div className="card line-items-panel">
-        <div className="state-container" style={{ padding: '1.5rem' }}>
-          <div className="state-icon" style={{ fontSize: '1.5rem' }}>⚠</div>
-          <span className="state-title">Error loading line items</span>
-          <button className="btn btn-primary" onClick={onRefresh} style={{ fontSize: '0.78rem', padding: '6px 12px' }}>
+        <div className="state-container">
+          <div className="state-icon-box" style={{ color: 'var(--rose-400)' }}>
+            <IconAlertTriangle size={24} />
+          </div>
+          <span className="state-title">Failed to load line items</span>
+          <span className="state-desc">{error}</span>
+          <button className="btn btn-primary" onClick={onRefresh} style={{ marginTop: '6px' }}>
             Retry
           </button>
         </div>
@@ -32,12 +34,12 @@ export default function LineItemPanel({ lineItems, loading, error, onRefresh }) 
   if (!lineItems || lineItems.length === 0) {
     return (
       <div className="card line-items-panel">
-        <div className="state-container" style={{ padding: '2rem' }}>
-          <div className="state-icon" style={{ fontSize: '1.5rem' }}>📋</div>
-          <span className="state-title">No line items</span>
-          <span className="state-desc" style={{ fontSize: '0.75rem' }}>
-            Run seed_demo to load sample data
-          </span>
+        <div className="state-container">
+          <div className="state-icon-box">
+            <IconFileText size={24} />
+          </div>
+          <span className="state-title">No Capital Call Line Items</span>
+          <span className="state-desc">No active capital calls found for this organization.</span>
         </div>
       </div>
     );
@@ -47,29 +49,37 @@ export default function LineItemPanel({ lineItems, loading, error, onRefresh }) 
   const grouped = {};
   for (const li of lineItems) {
     const key = li.capital_call_id;
-    if (!grouped[key]) grouped[key] = { callDate: li.call_date, dueDate: li.due_date, items: [] };
+    if (!grouped[key]) {
+      grouped[key] = {
+        callId: key,
+        callDate: li.call_date,
+        dueDate: li.due_date,
+        items: [],
+      };
+    }
     grouped[key].items.push(li);
   }
 
   return (
     <div className="card line-items-panel">
-      {/* Header */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-        <div className="section-header" style={{ marginBottom: 0 }}>
-          <span className="section-title">
-            📋 Line Items
+      <div className="card-header">
+        <div className="card-header-left">
+          <span className="card-title">
+            <span className="card-title-icon"><IconFileText size={18} /></span>
+            LP Capital Call Ledger
           </span>
-          <span className="section-badge">{lineItems.length}</span>
         </div>
+        <span className="badge-counter">{lineItems.length} Allocations</span>
       </div>
 
       {/* Grouped by capital call */}
-      {Object.entries(grouped).map(([callId, { callDate, dueDate, items }]) => (
+      {Object.values(grouped).map(({ callId, callDate, dueDate, items }) => (
         <div key={callId}>
-          <div className="call-group">
-            <div className="call-group-label">
-              Call #{callId} · {callDate} → {dueDate}
-            </div>
+          <div className="call-group-header">
+            <span className="call-group-tag">Capital Call #{callId}</span>
+            <span className="call-dates-badge">
+              Issued: {callDate} · Due: {dueDate}
+            </span>
           </div>
           {items.map(li => (
             <LineItemRow key={li.id} li={li} />
@@ -82,41 +92,47 @@ export default function LineItemPanel({ lineItems, loading, error, onRefresh }) 
 
 function LineItemRow({ li }) {
   const meta = lineItemStatusMeta(li.status);
-  const pct = fundedPercent(li.amount_called, li.amount_funded);
+  const pct = Math.round(fundedPercent(li.amount_called, li.amount_funded));
+  const isFullyFunded = li.status === 'funded' || pct >= 100;
 
   return (
-    <div className="line-item-card">
-      <div className="line-item-header">
+    <div className="lp-row-card">
+      <div className="lp-meta-row">
         <div>
-          <div className="line-item-investor">{li.investor_name}</div>
-          <div className="line-item-ref">{li.wire_reference}</div>
+          <div className="lp-name">{li.investor_name}</div>
+          <span className="wire-ref">{li.wire_reference}</span>
         </div>
-        <span className={`badge ${meta.cls}`} style={{ flexShrink: 0 }}>
-          {meta.icon} {meta.label}
-        </span>
+        <div style={{ textAlign: 'right' }}>
+          <span className={`badge ${meta.cls}`}>
+            {meta.label}
+          </span>
+          <div className="num-mono" style={{ fontSize: '0.72rem', color: isFullyFunded ? 'var(--emerald-400)' : 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
+            {pct}% funded
+          </div>
+        </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="progress-bar-wrap">
+      {/* Progress track */}
+      <div className="progress-track">
         <div
-          className={`progress-bar-fill ${li.status}`}
+          className={`progress-fill ${li.status}`}
           style={{ width: `${pct}%` }}
         />
       </div>
 
-      {/* Amounts */}
-      <div className="line-item-amounts">
-        <div className="amount-group">
-          <span className="label">Called</span>
-          <span className="value amount-called-val">{formatMoney(li.amount_called)}</span>
+      {/* 3-tier financial breakdown */}
+      <div className="amounts-breakdown">
+        <div className="amount-unit">
+          <span className="sub-label">Called</span>
+          <span className="sub-val">{formatMoney(li.amount_called)}</span>
         </div>
-        <div className="amount-group">
-          <span className="label">Funded</span>
-          <span className="value amount-funded-val">{formatMoney(li.amount_funded)}</span>
+        <div className="amount-unit funded">
+          <span className="sub-label">Funded</span>
+          <span className="sub-val">{formatMoney(li.amount_funded)}</span>
         </div>
-        <div className="amount-group">
-          <span className="label">Remaining</span>
-          <span className="value amount-remaining-val">{formatMoney(li.amount_remaining)}</span>
+        <div className="amount-unit remaining">
+          <span className="sub-label">Remaining</span>
+          <span className="sub-val">{formatMoney(li.amount_remaining)}</span>
         </div>
       </div>
     </div>

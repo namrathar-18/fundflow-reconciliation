@@ -1,15 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './index.css';
 import {
   fetchOrganizations,
   fetchTransactions,
   fetchLineItems,
   setOrganization,
-  getOrganization,
 } from './api';
 import UploadSection from './components/UploadSection';
 import TransactionTable from './components/TransactionTable';
 import LineItemPanel from './components/LineItemPanel';
+import Toast from './components/Toast';
+import {
+  IconBolt,
+  IconBuilding,
+  IconRefresh,
+  IconChevronDown,
+} from './components/Icons';
 
 export default function App() {
   const [organizations, setOrganizations] = useState([]);
@@ -23,10 +29,23 @@ export default function App() {
   const [liLoading, setLiLoading] = useState(false);
   const [liError, setLiError] = useState(null);
 
-  // Load organizations on mount (with a fallback list if backend is unavailable)
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((toast) => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 5);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Load organizations on mount
   useEffect(() => {
     fetchOrganizations()
-      .then(setOrganizations)
+      .then((orgs) => {
+        setOrganizations(orgs);
+      })
       .catch(() => {
         setOrganizations([
           { slug: 'northwind', name: 'Northwind Ventures' },
@@ -41,9 +60,14 @@ export default function App() {
     setCurrentOrg(slug);
     setTransactions([]);
     setLineItems([]);
+    addToast({
+      type: 'info',
+      title: 'Tenant Switched',
+      message: `Active organization context changed to ${slug}.`,
+    });
   };
 
-  // Load data for current org
+  // Load transactions
   const loadTransactions = useCallback(async () => {
     setTxLoading(true);
     setTxError(null);
@@ -55,8 +79,9 @@ export default function App() {
     } finally {
       setTxLoading(false);
     }
-  }, [currentOrg]);
+  }, []);
 
+  // Load line items
   const loadLineItems = useCallback(async () => {
     setLiLoading(true);
     setLiError(null);
@@ -68,7 +93,7 @@ export default function App() {
     } finally {
       setLiLoading(false);
     }
-  }, [currentOrg]);
+  }, []);
 
   const refreshAll = useCallback(() => {
     loadTransactions();
@@ -77,105 +102,112 @@ export default function App() {
 
   useEffect(() => {
     refreshAll();
-  }, [currentOrg]);
+  }, [currentOrg, refreshAll]);
 
-  // Stats for header
-  const needsReview = transactions.filter(t => t.status === 'needs_review').length;
-  const suggested = transactions.filter(t => t.status === 'suggested').length;
-  const reconciled = transactions.filter(t => t.status === 'reconciled').length;
+  // Live KPI Summary
+  const suggestedCount = transactions.filter((t) => t.status === 'suggested').length;
+  const needsReviewCount = transactions.filter((t) => t.status === 'needs_review').length;
+  const reconciledCount = transactions.filter((t) => t.status === 'reconciled').length;
 
   return (
     <div className="app">
       {/* ── Header ── */}
       <header className="header">
         <div className="header-brand">
-          <div className="brand-icon">⚡</div>
+          <div className="brand-icon-box">
+            <IconBolt size={20} />
+          </div>
           <div>
-            <div className="brand-name">FundFlow</div>
+            <div className="brand-title">
+              FundFlow
+              <span className="brand-badge">PRO</span>
+            </div>
             <div className="brand-tagline">Capital Call Reconciliation</div>
           </div>
         </div>
 
-        {/* Quick stats */}
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-          {suggested > 0 && (
-            <div style={{ fontSize: '0.75rem', color: '#60a5fa' }}>
-              <span style={{ fontWeight: 700 }}>{suggested}</span>
-              <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>suggested</span>
+        {/* Live KPI Indicators */}
+        <div className="header-stats">
+          {suggestedCount > 0 && (
+            <div className="stat-pill">
+              <span className="stat-dot blue" />
+              <span className="num">{suggestedCount}</span>
+              <span className="label">suggested</span>
             </div>
           )}
-          {needsReview > 0 && (
-            <div style={{ fontSize: '0.75rem', color: '#fbbf24' }}>
-              <span style={{ fontWeight: 700 }}>{needsReview}</span>
-              <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>needs review</span>
+          {needsReviewCount > 0 && (
+            <div className="stat-pill">
+              <span className="stat-dot amber" />
+              <span className="num">{needsReviewCount}</span>
+              <span className="label">needs review</span>
             </div>
           )}
-          {reconciled > 0 && (
-            <div style={{ fontSize: '0.75rem', color: '#34d399' }}>
-              <span style={{ fontWeight: 700 }}>{reconciled}</span>
-              <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>reconciled</span>
+          {reconciledCount > 0 && (
+            <div className="stat-pill">
+              <span className="stat-dot green" />
+              <span className="num">{reconciledCount}</span>
+              <span className="label">reconciled</span>
             </div>
           )}
         </div>
 
-        {/* Org switcher */}
-        <div className="org-switcher">
-          <span className="org-label">Organization</span>
-          <select
-            id="org-switcher"
-            className="org-select"
-            value={currentOrg}
-            onChange={(e) => switchOrg(e.target.value)}
+        {/* Right side: Refresh & Org switcher */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            className="btn btn-ghost"
+            onClick={refreshAll}
+            disabled={txLoading || liLoading}
+            title="Refresh current ledger"
           >
-            {organizations.map(org => (
-              <option key={org.slug} value={org.slug}>{org.name}</option>
-            ))}
-          </select>
+            {txLoading || liLoading ? (
+              <span className="spinner" style={{ width: 12, height: 12 }} />
+            ) : (
+              <IconRefresh size={14} />
+            )}
+            Sync
+          </button>
+
+          <div className="org-switcher-wrap">
+            <span className="org-switcher-icon">
+              <IconBuilding size={16} />
+            </span>
+            <select
+              id="org-switcher"
+              className="org-select-custom"
+              value={currentOrg}
+              onChange={(e) => switchOrg(e.target.value)}
+            >
+              {organizations.map((org) => (
+                <option key={org.slug} value={org.slug}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+            <IconChevronDown size={12} style={{ color: 'var(--text-muted)' }} />
+          </div>
         </div>
       </header>
 
-      {/* ── Main ── */}
+      {/* ── Main Container ── */}
       <main className="main">
-        {/* Upload */}
-        <UploadSection onImported={refreshAll} />
+        {/* Bank Statement Upload Card */}
+        <UploadSection onImported={refreshAll} onToast={addToast} />
 
-        {/* Transactions + Line Items */}
+        {/* Two-Column Grid */}
         <div className="content-grid">
-          {/* Left: Transactions */}
+          {/* Left Column: Bank Transactions Table */}
           <div>
-            <div className="section-header">
-              <span className="section-title">
-                💳 Transactions
-                {transactions.length > 0 && (
-                  <span className="section-badge">{transactions.length}</span>
-                )}
-              </span>
-              <button
-                className="btn btn-ghost"
-                id="refresh-btn"
-                onClick={refreshAll}
-                disabled={txLoading || liLoading}
-              >
-                {(txLoading || liLoading) ? (
-                  <span className="spinner" style={{ width: 10, height: 10 }} />
-                ) : '↻'} Refresh
-              </button>
-            </div>
             <TransactionTable
               transactions={transactions}
               loading={txLoading}
               error={txError}
               onRefresh={refreshAll}
+              onToast={addToast}
             />
           </div>
 
-          {/* Right: Line Items */}
+          {/* Right Column: Capital Call Line Items */}
           <div>
-            <div className="section-header">
-              <span className="section-title">
-                📋 Capital Call Line Items
-              </span>
-            </div>
             <LineItemPanel
               lineItems={lineItems}
               loading={liLoading}
@@ -185,6 +217,9 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Floating Toast Notifications */}
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
