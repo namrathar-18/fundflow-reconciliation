@@ -1,0 +1,11 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.sqlite3
+db.sqlite3
+__pycache__/
+*.py[cod]
+staticfiles/
+media/
+*.log
