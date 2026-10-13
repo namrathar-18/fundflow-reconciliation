@@ -3,11 +3,23 @@
  * All requests include X-Organization header.
  */
 
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (typeof window !== 'undefined' && window.location.port === '5173'
+const resolveBaseUrl = () => {
+  let custom = import.meta.env.VITE_API_URL;
+  if (custom) {
+    if (!custom.startsWith('http://') && !custom.startsWith('https://') && !custom.startsWith('/')) {
+      custom = `https://${custom}`;
+    }
+    if (!custom.endsWith('/api') && !custom.endsWith('/api/')) {
+      custom = `${custom.replace(/\/$/, '')}/api`;
+    }
+    return custom;
+  }
+  return typeof window !== 'undefined' && window.location.port === '5173'
     ? 'http://localhost:8000/api'
-    : '/api');
+    : '/api';
+};
+
+const BASE_URL = resolveBaseUrl();
 
 let currentOrg = 'northwind';
 
