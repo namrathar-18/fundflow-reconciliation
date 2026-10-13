@@ -3,7 +3,7 @@ services:
   - type: web
     name: fundflow-api
     runtime: python
-    buildCommand: "pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput"
+    buildCommand: "cd backend && pip install -r requirements.txt && python manage.py collectstatic --noinput"
     startCommand: "cd backend && python manage.py migrate && python manage.py seed_demo && gunicorn fundflow.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
@@ -39,5 +39,5 @@ services:
 databases:
   - name: fundflow-db
     databaseName: fundflow
-    user: postgres
+    user: fundflow
     plan: free
