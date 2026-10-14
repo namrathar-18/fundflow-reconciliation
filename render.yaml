@@ -5,7 +5,7 @@ services:
     plan: free
     runtime: python
     buildCommand: "cd backend && pip install -r requirements.txt && python manage.py collectstatic --noinput"
-    startCommand: "cd backend && python manage.py migrate && python manage.py seed_demo && gunicorn fundflow.wsgi:application --bind 0.0.0.0:$PORT"
+    startCommand: "cd backend && python manage.py migrate --noinput && python manage.py seed_demo || true && gunicorn fundflow.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
@@ -30,7 +30,4 @@ services:
         destination: "/index.html"
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: fundflow-api
-          property: host
+        value: "https://fundflow-api-6cc3.onrender.com/api"

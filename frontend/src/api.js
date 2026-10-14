@@ -14,9 +14,15 @@ const resolveBaseUrl = () => {
     }
     return custom;
   }
-  return typeof window !== 'undefined' && window.location.port === '5173'
-    ? 'http://localhost:8000/api'
-    : '/api';
+  if (typeof window !== 'undefined') {
+    if (window.location.port === '5173') {
+      return 'http://localhost:8000/api';
+    }
+    if (window.location.hostname.includes('onrender.com')) {
+      return 'https://fundflow-api-6cc3.onrender.com/api';
+    }
+  }
+  return '/api';
 };
 
 const BASE_URL = resolveBaseUrl();
