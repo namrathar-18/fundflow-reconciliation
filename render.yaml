@@ -1,5 +1,5 @@
 services:
-  # Django API Backend (100% Free Plan)
+  # Django API Backend (Free Web Service)
   - type: web
     name: fundflow-api
     plan: free
@@ -18,11 +18,9 @@ services:
       - key: USE_SQLITE
         value: "True"
 
-  # React SPA Frontend (100% Free Static Site)
-  - type: web
+  # React SPA Frontend (Free Static Site)
+  - type: static
     name: fundflow-frontend
-    plan: free
-    runtime: static
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
     routes:
